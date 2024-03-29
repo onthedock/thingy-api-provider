@@ -1,5 +1,14 @@
 package main
 
+import (
+	"context"
+	"flag"
+	"log"
+
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+	"github.com/onthedock/terraform-provider-thingy/internal/provider"
+)
+
 var (
 	// these will be set by the goreleaser configuration
 	// to appropriate values for the compiled binary.

@@ -105,3 +105,108 @@ Tamnbién definimos el *model* para el *provider*; este *struct* se usa para *se
 
 En el recurso de ejemplo, únicamente es necesario proporcionar una propiedad, el *endpoint* al que se contectará el *provider*.
 
+## Métodos del *provider*
+
+El *provider* tiene varios métodos que deben satisfacerse:
+
+- `Metadata`
+- `Schema`
+- `Configure`
+- `DataSources`
+- `Resources`
+
+Así que tenemos que definirlos para que nuestro *provider* sea un *provider* válido.
+
+### `Metadata`
+
+```go
+func (p *ThingyProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+    resp.TypeName = "thingy"
+    resp.Version = p.version
+}
+```
+
+### `Schema`
+
+En `Schema` definimos los atributos del *provider*; en nuestro caso, sólo tenemos un atributo opcional, el *endpoint*:
+
+```go
+func (p *ThingyProvider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+    resp.Schema = schema.Schema{
+        Attributes: map[string]schema.Attribute{
+            "endpoint": schema.StringAttribute{
+                MarkdownDescription: "Endpoint for the Thingy provider to connect to",
+                Optional:            true,
+            },
+        },
+    }
+}
+```
+
+### `Configure`
+
+El método `Configure` es donde realizamos la lectura del fichero de configuración del *provider*, así como de las variables de entorno relevantes requeridas para configurar el cliente usado por el *provider* para conectar con la API.
+
+De momento, lo obviamos.
+
+```go
+func (p *ThingyProvider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
+    var data ThingyProviderModel
+
+    resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+
+    if resp.Diagnostics.HasError() {
+        return
+    }
+
+    // Configuration values are now available.
+    // if data.Endpoint.IsNull() { /* ... */ }
+
+    // Example client configuration for data sources and resources
+    client := http.DefaultClient
+    resp.DataSourceData = client
+    resp.ResourceData = client
+}
+```
+
+En el bloque comentado, como hemos definido el *endpoint* como opcional, deberíamos establecer algún valor por defecto, por ejemplo, conectar con un *endpoint* local o algo por el estilo.
+
+Después de leer la configuración, si no está especificado el *endpoint*, podríamos intentar obtener la configuración desde una variable de entorno.
+
+De nuevo, dejamos esta configuración del *provider* para más tarde.
+
+### `DataSources` y `Resources`
+
+De momento, sólo estamos añadiendo los métodos requeridos para que el nuevo *provier* valide la definición del `provider.Provider`.
+Por ello, dejamos vacíos tanto los *recursos* como los *datasources* gestionados por el *provider*.
+
+### `New`
+
+La función `New()` instancia el *provider*.
+
+```go
+func New(version string) func() provider.Provider {
+    return func() provider.Provider {
+        return &ThingyProvider{
+            version: version,
+        }
+    }
+}
+```
+
+Con esta configuración básica deberíamos ser capaces de compilar el *provider*.
+
+```go
+$ go install .
+$ ls /go/bin/ | grep -i terraform
+terraform-provider-thingy
+```
+
+Y si intentamos ejecutarlo:
+
+```console
+ $ /go/bin/terraform-provider-thingy 
+This binary is a plugin. These are not meant to be executed directly.
+Please execute the program that consumes these plugins, which will
+load any plugins automatically
+```
