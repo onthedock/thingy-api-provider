@@ -210,3 +210,95 @@ This binary is a plugin. These are not meant to be executed directly.
 Please execute the program that consumes these plugins, which will
 load any plugins automatically
 ```
+
+Para realizar pruebas durante la fase de desarrollo del *provider*, podemos configurar Terraform mediante el fichero `$HOME/.terraformrc`. Incluimos un bloque `provider_installation` en el que configuramos:
+
+> Por defecto, Terraform busca el *provider* en el Terraform Registry ([registry.terraform.io/xaviaznar/thingy](registry.terraform.io/xaviaznar/thingy)), por lo que sólo tenemos que proporcionar el *namespace* (`xaviaznar`) seguido del nombre del *provider* (`thingy`); en el `dev_override` lo configuramos para apuntar a la carpeta `/go/bin/` (que es donde se instala el binario compilado del *provider*).
+> Terraform funciona en base a convenciones, por lo que si el *provider* se llama `thingy`, el nombre del binario que implementa el *provider* debe ser `terraform-provider-thingy`:
+
+```json
+provider_installation {
+  dev_overrides {
+    "xaviaznar/thingy" = "/go/bin/"
+  }
+  direct {}
+}
+```
+
+> Tenemos que apuntar a la ubicación en la que se *instala* el *provider*, es decir, en `$GOBIN` (aunque puede no estar definido, como en instalaciones modernas de Go).
+> Cuando querramos probar el proveedor, ejecutaremos `go install`.
+> En `mcr.microsoft.com/devcontainers/go:1.22-bookworm` se encuentra en `/go/bin/`.
+
+Si dejamos habilitado el `dev_override`, Terraform no podrá descargar proveedores desde el *registry*, por lo que se muestra un *warning* cuando está activo.
+
+## Inicialización del *provider*
+
+Aunque el *provider* todavía no es funcional, podemos validar que tenemos la configuración adecuada para realizar pruebas más adelante.
+
+Empezamos probando la inicialización de Terraform, para validar que Terraform encuentra la versión local del *provider*.
+
+Creamos una carpeta en la que alojar el código de *infraestructura como código*:
+
+```console
+mkdir infra_as_code
+touch infra_as_code/main.tf
+```
+
+```json
+terraform { 
+    required_providers { 
+        thingy = { source = "xaviaznar/thingy" }
+    }
+}
+
+provider "thingy" {}
+```
+
+Cuando ejecutamos `terraform init`, obtenemos:
+
+```console
+$ terraform init
+
+Initializing the backend...
+
+Initializing provider plugins...
+- Finding latest version of xaviaznar/thingy...
+╷
+│ Warning: Provider development overrides are in effect
+│ 
+│ The following provider development overrides are set in the CLI configuration:
+│  - xaviaznar/thingy in /go/bin
+│ 
+│ Skip terraform init when using provider development overrides. It is not necessary and may error unexpectedly.
+╵
+
+╷
+│ Error: Failed to query available provider packages
+│ 
+│ Could not retrieve the list of available versions for provider xaviaznar/thingy: provider registry registry.terraform.io does not have a provider named
+│ registry.terraform.io/xaviaznar/thingy
+│ 
+│ All modules should specify their required_providers so that external consumers will get the correct providers when using a module. To see which modules are currently depending on
+│ xaviaznar/thingy, run the following command:
+│     terraform providers
+```
+
+Sin embargo, si ejecutamos `terraform apply`:
+
+```console
+$ terraform apply
+╷
+│ Warning: Provider development overrides are in effect
+│ 
+│ The following provider development overrides are set in the CLI configuration:
+│  - xaviaznar/thingy in /go/bin
+│ 
+│ The behavior may therefore not match any released version of the provider and applying changes may cause the state to become incompatible with published releases.
+╵
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration and found no differences, so no changes are needed.
+
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+```
